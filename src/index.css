@@ -4,6 +4,8 @@
 
 @layer base {
   :root {
+    --brand-primary: #B91C1C;
+    --brand-secondary: #F59E0B;
     --bg-main: #0C0A09;
     --text-main: #FFF4E0;
     --surface: #1C1917;

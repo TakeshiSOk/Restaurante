@@ -3,7 +3,7 @@
 export type OrderStatus = 'recibido' | 'en_cocina' | 'listo' | 'en_camino' | 'entregado' | 'cancelado';
 export type OrderOrigin = 'web' | 'mostrador' | 'mesa' | 'domicilio' | 'whatsapp';
 export type PaymentMethod = 'efectivo' | 'nequi' | 'daviplata' | 'transferencia' | 'tarjeta' | 'fiado';
-export type StaffRole = 'dueno' | 'cajero' | 'cocinero' | 'domiciliario';
+export type StaffRole = 'dueno' | 'administrador' | 'cajero' | 'cocinero' | 'domiciliario' | 'cliente';
 export type KitchenStation = 'parrilla' | 'freidora' | 'pizza' | 'general';
 
 export interface Category {
@@ -199,10 +199,13 @@ export interface DeliveryZone {
 export interface Staff {
   id: string;
   name: string;
+  email?: string;
   role: StaffRole;
   pin: string;
   phone: string;
   active: boolean;
+  vehiclePlate?: string;
+  registeredAt?: string;
 }
 
 export interface PriceAdjustmentAudit {
@@ -216,6 +219,11 @@ export interface PriceAdjustmentAudit {
 export interface BusinessSettings {
   name: string;
   tagline: string;
+  logoUrl?: string;
+  primaryColor?: string; // Color primario de marca (CSS Hex)
+  secondaryColor?: string; // Color secundario de marca (CSS Hex)
+  colorPaletteId?: string; // ID de paleta seleccionada
+  presentationMode?: boolean; // Modo presentación (oculta complejidad para demos)
   phone: string;
   whatsappNumber: string;
   address: string;

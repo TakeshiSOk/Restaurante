@@ -297,7 +297,11 @@ export function playAlertSound(type: 'order' | 'kitchen' | 'success' = 'order') 
 }
 
 // Generador de mensaje formateado con emojis para WhatsApp
-export function generateWhatsAppOrderLink(order: Order, whatsappNumber: string): string {
+export function generateWhatsAppOrderLink(
+  order: Order,
+  whatsappNumber: string,
+  businessName = 'Chaves Burguer'
+): string {
   const cleanPhone = whatsappNumber.replace(/\D/g, '');
   const itemsText = order.items
     .map((item, idx) => {
@@ -337,7 +341,7 @@ export function generateWhatsAppOrderLink(order: Order, whatsappNumber: string):
     paymentText += ` (Paga con: ${formatCurrency(mainPayment.receivedAmount)} - Cambio: ${formatCurrency(mainPayment.change ?? 0)})`;
   }
 
-  let text = `🍔 *NUEVO PEDIDO - CHAVES BURGUER*\n`;
+  let text = `🍔 *NUEVO PEDIDO - ${businessName.toUpperCase()}*\n`;
   text += `Código: *${order.code}*\n`;
   text += `Tipo: ${originLabel[order.origin] || order.origin}\n\n`;
   text += `👤 *Cliente:* ${order.customer.name}\n`;
@@ -362,7 +366,7 @@ export function generateWhatsAppOrderLink(order: Order, whatsappNumber: string):
   if (trackingUrl) {
     text += `\n📍 *Seguimiento en vivo:* ${trackingUrl}\n`;
   }
-  text += `\n¡Gracias por elegir a *Chaves Burguer!* 🙌`;
+  text += `\n¡Gracias por elegir a *${businessName}!* 🙌`;
 
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
 }

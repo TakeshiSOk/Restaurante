@@ -32,7 +32,10 @@ import { es } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 
 export const DashboardPage: React.FC = () => {
-  const { orders, inventory, cashSessions } = useAppStore();
+  const { orders, inventory, cashSessions, customers } = useAppStore();
+
+  const totalCreditBalance = customers.reduce((sum, c) => sum + (c.creditBalance || 0), 0);
+  const criticalStockItems = inventory.filter((i) => i.stock <= i.minStock);
 
   // Métricas de Hoy vs Ayer
   const metrics = useMemo(() => {
@@ -213,9 +216,9 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* KPI Cards Grid */}
+      {/* KPI Cards Grid - Resumen del Día */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Ventas Hoy */}
+        {/* 1. Ventas Hoy */}
         <div className="p-5 rounded-2xl bg-brand-surface border border-brand-border/70 space-y-2 shadow-sm">
           <div className="flex items-center justify-between text-zinc-400">
             <span className="text-xs font-semibold">Ventas de Hoy</span>
@@ -236,61 +239,67 @@ export const DashboardPage: React.FC = () => {
                 <ArrowDownRight className="w-3.5 h-3.5" /> {metrics.salesGrowth}%
               </span>
             )}
-            <span className="text-zinc-500">vs ayer ({formatCurrency(metrics.yesterdaySales)})</span>
+            <span className="text-zinc-500">vs ayer · {metrics.todayOrdersCount} pedidos</span>
           </div>
         </div>
 
-        {/* # Pedidos Hoy */}
+        {/* 2. Pedidos Activos (Comandas en proceso) */}
         <div className="p-5 rounded-2xl bg-brand-surface border border-brand-border/70 space-y-2 shadow-sm">
           <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-xs font-semibold">Pedidos Hoy</span>
+            <span className="text-xs font-semibold">Pedidos Activos Hoy</span>
             <div className="p-2 rounded-xl bg-brand-orange/10 text-brand-orange">
-              <ShoppingBag className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="font-black text-2xl text-brand-cream">
-            {metrics.todayOrdersCount} órdenes
-          </div>
-          <p className="text-[11px] text-zinc-500">
-            Promedio ticket: <span className="font-bold text-zinc-300">{formatCurrency(metrics.avgTicket)}</span>
-          </p>
-        </div>
-
-        {/* Pedidos Activos */}
-        <div className="p-5 rounded-2xl bg-brand-surface border border-brand-border/70 space-y-2 shadow-sm">
-          <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-xs font-semibold">Pedidos en Proceso</span>
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div className="font-black text-2xl text-purple-300">
-            {metrics.activeOrdersCount} activos
+          <div className="font-black text-2xl text-brand-orange">
+            {metrics.activeOrdersCount} en proceso
           </div>
           <Link
             to="/admin/pedidos"
-            className="text-[11px] text-purple-400 font-bold hover:underline inline-block"
+            className="text-[11px] text-brand-orange font-bold hover:underline inline-flex items-center gap-1"
           >
-            Ver tablero de pedidos →
+            <span>Ver cocina y comandas</span>
+            <span>→</span>
           </Link>
         </div>
 
-        {/* Caja Actual */}
+        {/* 3. Fiado Pendiente por Cobrar */}
         <div className="p-5 rounded-2xl bg-brand-surface border border-brand-border/70 space-y-2 shadow-sm">
           <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-xs font-semibold">Efectivo en Caja</span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+            <span className="text-xs font-semibold">Fiado por Cobrar</span>
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="font-black text-2xl text-emerald-400">
-            {formatCurrency(metrics.cashBalance)}
+          <div className="font-black text-2xl text-amber-300">
+            {formatCurrency(totalCreditBalance)}
           </div>
           <Link
-            to="/admin/caja"
-            className="text-[11px] text-emerald-400 font-bold hover:underline inline-block"
+            to="/admin/clientes"
+            className="text-[11px] text-amber-400 font-bold hover:underline inline-flex items-center gap-1"
           >
-            Ir a control de turno y cierre →
+            <span>Gestionar cartera y abonos</span>
+            <span>→</span>
+          </Link>
+        </div>
+
+        {/* 4. Insumos con Stock Crítico */}
+        <div className="p-5 rounded-2xl bg-brand-surface border border-brand-border/70 space-y-2 shadow-sm">
+          <div className="flex items-center justify-between text-zinc-400">
+            <span className="text-xs font-semibold">Insumos Críticos</span>
+            <div className="p-2 rounded-xl bg-red-500/10 text-red-400">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="font-black text-2xl text-red-400">
+            {criticalStockItems.length} alertas
+          </div>
+          <Link
+            to="/admin/inventario"
+            className="text-[11px] text-red-400 font-bold hover:underline inline-flex items-center gap-1"
+          >
+            <span>Ver inventario crítico</span>
+            <span>→</span>
           </Link>
         </div>
       </div>

@@ -127,6 +127,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
     }
 
     clearCart();
+    try {
+      localStorage.setItem('chaves_last_order_code', newOrder.code);
+      localStorage.setItem('chaves_last_order_phone', customerPhone.trim());
+    } catch {
+      // ignore
+    }
     setConfirmedOrder(newOrder);
     setIsSubmitting(false);
   };
@@ -169,7 +175,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
                 {confirmedOrder.code}
               </h3>
               <p className="text-xs text-zinc-400 mt-2 max-w-sm mx-auto">
-                Tu pedido ha sido recibido en el sistema de Chaves Burguer y ya está listo para pasar a cocina.
+                Tu pedido ha sido recibido en el sistema de {settings.name} y ya está listo para pasar a cocina.
               </p>
             </div>
 
@@ -197,7 +203,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
             {/* Acciones principales */}
             <div className="space-y-2.5">
               <a
-                href={generateWhatsAppOrderLink(confirmedOrder, settings.whatsappNumber)}
+                href={generateWhatsAppOrderLink(confirmedOrder, settings.whatsappNumber, settings.name)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all"

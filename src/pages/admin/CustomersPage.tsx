@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatCurrency } from '../../lib/utils';
-import { Customer } from '../../types';
-import { Users, Search, Plus, Award, MessageCircle, Phone, MapPin, X } from 'lucide-react';
+import { Customer, PaymentMethod } from '../../types';
+import { Users, Search, Plus, Award, MessageCircle, Phone, MapPin, X, DollarSign, CheckCircle } from 'lucide-react';
 
 export const CustomersPage: React.FC = () => {
-  const { customers, addCustomer, settings, setNotification } = useAppStore();
+  const { customers, addCustomer, recordCreditPayment, currentUser, settings, setNotification } = useAppStore();
 
   const [search, setSearch] = useState('');
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+
+  // Fiado Abono Modal
+  const [abonoCustomer, setAbonoCustomer] = useState<Customer | null>(null);
+  const [abonoAmount, setAbonoAmount] = useState('');
+  const [abonoMethod, setAbonoMethod] = useState<PaymentMethod>('efectivo');
 
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
@@ -46,6 +51,24 @@ export const CustomersPage: React.FC = () => {
     setNewPhone('');
     setNewAddress('');
     setNewNotes('');
+  };
+
+  const handleAbonoSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!abonoCustomer) return;
+    const amountNum = parseFloat(abonoAmount.replace(/\D/g, '')) || 0;
+    if (amountNum <= 0) {
+      alert('Ingresa un monto válido para el abono.');
+      return;
+    }
+
+    recordCreditPayment(abonoCustomer.id, amountNum, abonoMethod, currentUser?.name || 'Cajero');
+    setNotification({
+      message: `Abono de ${formatCurrency(amountNum)} registrado para ${abonoCustomer.name}`,
+      type: 'success',
+    });
+    setAbonoCustomer(null);
+    setAbonoAmount('');
   };
 
   return (
@@ -92,7 +115,7 @@ export const CustomersPage: React.FC = () => {
                 <th className="p-3.5">CONTACTO</th>
                 <th className="p-3.5 text-center">PEDIDOS</th>
                 <th className="p-3.5">TOTAL CONSUMIDO</th>
-                <th className="p-3.5">PUNTOS CHAVES</th>
+                {!settings?.presentationMode && <th className="p-3.5">PUNTOS CHAVES</th>}
                 <th className="p-3.5">SALDO FIADO</th>
                 <th className="p-3.5 text-center">WHATSAPP</th>
               </tr>
@@ -112,17 +135,33 @@ export const CustomersPage: React.FC = () => {
                   </td>
                   <td className="p-3.5 text-center font-bold text-zinc-300">{c.totalOrders}</td>
                   <td className="p-3.5 font-bold text-brand-cream">{formatCurrency(c.totalSpent)}</td>
-                  <td className="p-3.5">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300">
-                      <Award className="w-3.5 h-3.5" />
-                      <span>{c.loyaltyPoints} pts</span>
-                    </span>
-                  </td>
+                  {!settings?.presentationMode && (
+                    <td className="p-3.5">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                        <Award className="w-3.5 h-3.5" />
+                        <span>{c.loyaltyPoints} pts</span>
+                      </span>
+                    </td>
+                  )}
                   <td className="p-3.5">
                     {c.creditBalance > 0 ? (
-                      <span className="font-black text-brand-red-light">
-                        {formatCurrency(c.creditBalance)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-brand-red-light">
+                          {formatCurrency(c.creditBalance)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAbonoCustomer(c);
+                            setAbonoAmount(String(c.creditBalance));
+                          }}
+                          className="px-2 py-0.5 rounded-lg bg-brand-orange/20 hover:bg-brand-orange text-brand-orange hover:text-white border border-brand-orange/40 text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm"
+                          title="Registrar abono a saldo fiado"
+                        >
+                          <DollarSign className="w-3 h-3" />
+                          <span>Abonar</span>
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-zinc-500">Al día ($0)</span>
                     )}
@@ -218,6 +257,85 @@ export const CustomersPage: React.FC = () => {
                 type="button"
                 onClick={() => setIsNewModalOpen(false)}
                 className="px-4 py-3 bg-zinc-800 text-zinc-300 font-bold rounded-xl text-xs"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {/* Modal Registrar Abono al Fiado */}
+      {abonoCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <form
+            onSubmit={handleAbonoSubmit}
+            className="bg-brand-surface border border-brand-border rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-brand-cream"
+          >
+            <div className="flex justify-between items-start border-b border-brand-border/60 pb-3">
+              <div>
+                <h3 className="font-display text-xl font-black text-brand-cream">
+                  Abono a Saldo Fiado
+                </h3>
+                <p className="text-xs text-zinc-400">Cliente: <span className="font-bold text-brand-orange">{abonoCustomer.name}</span></p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAbonoCustomer(null)}
+                className="p-1 text-zinc-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-zinc-900/80 rounded-xl border border-zinc-800 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Saldo Pendiente Actual:</span>
+                <span className="font-black text-brand-red-light">{formatCurrency(abonoCustomer.creditBalance)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-300">Monto a Abonar (COP) *</label>
+              <input
+                type="number"
+                required
+                autoFocus
+                min={1}
+                max={abonoCustomer.creditBalance}
+                value={abonoAmount}
+                onChange={(e) => setAbonoAmount(e.target.value)}
+                placeholder="Ej: 20000"
+                className="w-full p-2.5 rounded-xl bg-brand-surface-light border border-brand-border text-xs text-brand-cream focus:outline-none focus:border-brand-orange"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-300">Método de Pago</label>
+              <select
+                value={abonoMethod}
+                onChange={(e) => setAbonoMethod(e.target.value as PaymentMethod)}
+                className="w-full p-2.5 rounded-xl bg-brand-surface-light border border-brand-border text-xs text-brand-cream focus:outline-none focus:border-brand-orange"
+              >
+                <option value="efectivo" className="bg-zinc-900">💵 Efectivo (Suma en Caja)</option>
+                <option value="nequi" className="bg-zinc-900">🟣 Nequi</option>
+                <option value="daviplata" className="bg-zinc-900">🔴 Daviplata</option>
+                <option value="transferencia" className="bg-zinc-900">🏦 Transferencia Bancaria</option>
+                <option value="tarjeta" className="bg-zinc-900">💳 Tarjeta Débito / Crédito</option>
+              </select>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="submit"
+                className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg flex items-center justify-center gap-1.5 hover:opacity-95 transition-opacity"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>Confirmar Abono</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAbonoCustomer(null)}
+                className="px-4 py-3 bg-zinc-800 text-zinc-300 font-bold rounded-xl text-xs hover:bg-zinc-700 transition-colors"
               >
                 Cancelar
               </button>

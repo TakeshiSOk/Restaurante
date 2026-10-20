@@ -19,9 +19,7 @@ export const KitchenKdsPage: React.FC = () => {
   }, []);
 
   // Filtrar pedidos que están en preparación ('recibido' o 'en_cocina')
-  const kitchenOrders = orders.filter(
-    (o) => o.status === 'en_cocina' || o.status === 'recibido'
-  );
+  const kitchenOrders = orders.filter((o) => o.status === 'en_cocina' || o.status === 'recibido').sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   const handleItemToggle = (orderId: string, itemId: string) => {
     toggleItemReady(orderId, itemId);

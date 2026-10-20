@@ -9,10 +9,10 @@ export default {
     extend: {
       colors: {
         brand: {
-          red: '#B91C1C',
+          red: 'var(--brand-primary, #B91C1C)',
           'red-dark': '#991B1B',
           'red-light': '#EF4444',
-          orange: '#F59E0B',
+          orange: 'var(--brand-secondary, #F59E0B)',
           amber: '#D97706',
           yellow: '#FBBF24',
           cream: '#FFF4E0',

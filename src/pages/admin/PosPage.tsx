@@ -16,6 +16,9 @@ import {
   Banknote,
   DollarSign,
   User,
+  UserPlus,
+  Phone,
+  MapPin,
   Utensils,
   X,
   Percent,
@@ -33,7 +36,7 @@ interface PosCartItem {
 }
 
 export const PosPage: React.FC = () => {
-  const { categories, products, customers, tables, createOrder, updateTableStatus, setNotification, currentUser } =
+  const { categories, products, customers, tables, createOrder, updateTableStatus, setNotification, currentUser, addCustomer } =
     useAppStore();
 
   const [searchParams] = useSearchParams();
@@ -78,6 +81,43 @@ export const PosPage: React.FC = () => {
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [lastCompletedOrder, setLastCompletedOrder] = useState<any>(null);
 
+  // Modal para registrar nuevo cliente desde el POS
+  const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState(false);
+  const [newCustName, setNewCustName] = useState('');
+  const [newCustPhone, setNewCustPhone] = useState('');
+  const [newCustAddress, setNewCustAddress] = useState('');
+  const [newCustNotes, setNewCustNotes] = useState('');
+
+  const handleQuickCreateCustomer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustName.trim() || !newCustPhone.trim()) {
+      setNotification({
+        message: 'El nombre y teléfono del cliente son requeridos.',
+        type: 'error',
+      });
+      return;
+    }
+
+    const created = addCustomer({
+      name: newCustName.trim(),
+      phone: newCustPhone.trim(),
+      address: newCustAddress.trim() || undefined,
+      notes: newCustNotes.trim() || undefined,
+    });
+
+    setSelectedCustomer(created.id);
+    setNotification({
+      message: `Cliente ${created.name} registrado con éxito.`,
+      type: 'success',
+    });
+
+    setIsNewCustomerModalOpen(false);
+    setNewCustName('');
+    setNewCustPhone('');
+    setNewCustAddress('');
+    setNewCustNotes('');
+  };
+
   // Totales
   const subtotal = posCart.reduce((acc, i) => acc + i.total, 0);
   const calculatedDiscount =
@@ -87,6 +127,9 @@ export const PosPage: React.FC = () => {
   // Cambio
   const cashNum = parseFloat(cashReceived.replace(/\D/g, '')) || 0;
   const changeDue = Math.max(0, cashNum - total);
+
+  // Cliente seleccionado
+  const selectedCustomerObj = customers.find((c) => c.id === selectedCustomer);
 
   // Filtrado de productos en POS
   const filteredProducts = products.filter((p) => {
@@ -174,9 +217,11 @@ export const PosPage: React.FC = () => {
       origin: 'mesa',
       status: 'en_cocina',
       customer: {
+        id: targetCustomer?.id,
         name: targetCustomer ? targetCustomer.name : `Mesa #${selectedTable}`,
         phone: targetCustomer ? targetCustomer.phone : '3000000000',
         tableNumber: selectedTable,
+        address: targetCustomer?.address,
       },
       items: posCart.map((item, idx) => ({
         id: `pos-item-${Date.now()}-${idx}`,
@@ -346,9 +391,12 @@ export const PosPage: React.FC = () => {
         status: 'en_cocina',
         customer: {
           id: custObj?.id,
-          name: custObj ? custObj.name : `Cliente ${orderOrigin === 'mesa' ? `Mesa #${selectedTable}` : 'Mostrador'}`,
+          name: custObj
+            ? custObj.name
+            : `Cliente ${orderOrigin === 'mesa' ? `Mesa #${selectedTable}` : orderOrigin === 'domicilio' ? 'Domicilio' : 'Mostrador'}`,
           phone: custObj ? custObj.phone : '3000000000',
           tableNumber: orderOrigin === 'mesa' ? selectedTable : undefined,
+          address: custObj?.address,
         },
         items: posCart.map((item, idx) => ({
           id: `pos-item-${Date.now()}-${idx}`,
@@ -530,20 +578,66 @@ export const PosPage: React.FC = () => {
                 </select>
               </div>
             ) : (
-              <div className="flex-1 flex items-center gap-1.5 bg-brand-surface p-1.5 rounded-xl border border-brand-border">
-                <User className="w-3.5 h-3.5 text-brand-orange" />
-                <select
-                  value={selectedCustomer}
-                  onChange={(e) => setSelectedCustomer(e.target.value)}
-                  className="bg-transparent text-xs text-brand-cream focus:outline-none flex-1"
-                >
-                  <option value="" className="bg-zinc-900">Cliente mostrador casual</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id} className="bg-zinc-900">
-                      {c.name} ({c.phone})
-                    </option>
-                  ))}
-                </select>
+              <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex-1 flex items-center gap-1.5 bg-brand-surface p-1.5 rounded-xl border border-brand-border min-w-0">
+                    <User className="w-3.5 h-3.5 text-brand-orange shrink-0" />
+                    <select
+                      value={selectedCustomer}
+                      onChange={(e) => {
+                        if (e.target.value === '__NEW__') {
+                          setIsNewCustomerModalOpen(true);
+                        } else {
+                          setSelectedCustomer(e.target.value);
+                        }
+                      }}
+                      className="bg-transparent text-xs text-brand-cream focus:outline-none flex-1 truncate"
+                    >
+                      <option value="" className="bg-zinc-900">Cliente mostrador casual</option>
+                      <option value="__NEW__" className="bg-zinc-900 text-brand-orange font-bold">
+                        ➕ Registrar nuevo cliente...
+                      </option>
+                      {customers.map((c) => (
+                        <option key={c.id} value={c.id} className="bg-zinc-900">
+                          {c.name} ({c.phone})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsNewCustomerModalOpen(true)}
+                    className="p-1.5 sm:px-2.5 sm:py-1.5 bg-brand-orange/15 hover:bg-brand-orange text-brand-orange hover:text-white rounded-xl border border-brand-orange/30 transition-all shrink-0 flex items-center gap-1 text-xs font-semibold"
+                    title="Registrar nuevo cliente"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Nuevo</span>
+                  </button>
+                </div>
+
+                {selectedCustomerObj && (
+                  <div className="flex items-center justify-between text-[11px] text-zinc-300 bg-black/40 px-2.5 py-1 rounded-lg border border-brand-border/60 animate-fade-in">
+                    <div className="truncate flex items-center gap-1.5">
+                      <Phone className="w-3 h-3 text-brand-orange shrink-0" />
+                      <span className="font-medium">{selectedCustomerObj.phone}</span>
+                      {selectedCustomerObj.address && (
+                        <>
+                          <span className="text-zinc-600">•</span>
+                          <MapPin className="w-3 h-3 text-brand-orange shrink-0" />
+                          <span className="truncate text-zinc-400">{selectedCustomerObj.address}</span>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCustomer('')}
+                      className="text-zinc-500 hover:text-red-400 p-0.5 ml-1 transition-colors"
+                      title="Quitar cliente seleccionado"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1013,6 +1107,100 @@ export const PosPage: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Modal para Registrar Nuevo Cliente desde POS */}
+      {isNewCustomerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <form
+            onSubmit={handleQuickCreateCustomer}
+            className="bg-brand-surface border border-brand-border rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl text-brand-cream"
+          >
+            <div className="flex justify-between items-start border-b border-brand-border/60 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-brand-orange/20 text-brand-orange rounded-xl border border-brand-orange/30">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl font-black text-brand-cream">
+                    Nuevo Cliente
+                  </h3>
+                  <p className="text-xs text-zinc-400">Registrar para POS, Domicilio o Fiado</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNewCustomerModalOpen(false)}
+                className="p-1 text-zinc-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-300">Nombre Completo *</label>
+              <input
+                type="text"
+                required
+                autoFocus
+                value={newCustName}
+                onChange={(e) => setNewCustName(e.target.value)}
+                placeholder="Ej: Mauricio Betancur"
+                className="w-full p-2.5 rounded-xl bg-brand-surface-light border border-brand-border text-xs text-brand-cream focus:outline-none focus:border-brand-orange"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-300">Teléfono / Celular *</label>
+              <input
+                type="tel"
+                required
+                value={newCustPhone}
+                onChange={(e) => setNewCustPhone(e.target.value)}
+                placeholder="Ej: 310 123 4567"
+                className="w-full p-2.5 rounded-xl bg-brand-surface-light border border-brand-border text-xs text-brand-cream focus:outline-none focus:border-brand-orange"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-300">Dirección (Muy útil para Domicilios)</label>
+              <input
+                type="text"
+                value={newCustAddress}
+                onChange={(e) => setNewCustAddress(e.target.value)}
+                placeholder="Ej: Calle 16 # 7-19, Apto 302"
+                className="w-full p-2.5 rounded-xl bg-brand-surface-light border border-brand-border text-xs text-brand-cream focus:outline-none focus:border-brand-orange"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-300">Notas / Observaciones (opcional)</label>
+              <input
+                type="text"
+                value={newCustNotes}
+                onChange={(e) => setNewCustNotes(e.target.value)}
+                placeholder="Ej: Cliente frecuente / Fiado autorizado"
+                className="w-full p-2.5 rounded-xl bg-brand-surface-light border border-brand-border text-xs text-brand-cream focus:outline-none focus:border-brand-orange"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="submit"
+                className="flex-1 py-3 bg-gradient-to-r from-brand-red to-brand-orange text-white font-bold rounded-xl text-xs shadow-glow-red hover:opacity-95 transition-opacity"
+              >
+                Guardar y Seleccionar
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsNewCustomerModalOpen(false)}
+                className="px-4 py-3 bg-zinc-800 text-zinc-300 font-bold rounded-xl text-xs hover:bg-zinc-700 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

@@ -6,7 +6,7 @@ import { Receipt, Plus, DollarSign, PieChart as PieIcon, Trash2, X } from 'lucid
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export const ExpensesPage: React.FC = () => {
-  const { expenses, addExpense, deleteExpense, setNotification } = useAppStore();
+  const { expenses, addExpense, deleteExpense, setNotification, settings } = useAppStore();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [provider, setProvider] = useState('');
@@ -15,11 +15,16 @@ export const ExpensesPage: React.FC = () => {
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('efectivo');
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  // Si modo presentación está activo, se oculta la categoría de nómina
+  const visibleExpenses = settings?.presentationMode
+    ? expenses.filter((e) => e.category !== 'nomina')
+    : expenses;
+
+  const totalExpenses = visibleExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   // Agrupación por categoría
   const categoryTotals: Record<string, number> = {};
-  expenses.forEach((e) => {
+  visibleExpenses.forEach((e) => {
     categoryTotals[e.category] = (categoryTotals[e.category] || 0) + e.amount;
   });
 
@@ -138,7 +143,7 @@ export const ExpensesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-brand-border/40">
-              {expenses.map((e) => (
+              {visibleExpenses.map((e) => (
                 <tr key={e.id} className="hover:bg-brand-surface-light/40 transition-colors">
                   <td className="p-3.5 text-zinc-400 whitespace-nowrap">{formatDateTime(e.date)}</td>
                   <td className="p-3.5 font-bold text-brand-cream">{e.provider}</td>
@@ -202,7 +207,7 @@ export const ExpensesPage: React.FC = () => {
               >
                 <option value="proveedores">Proveedores de Alimentos</option>
                 <option value="servicios">Servicios Públicos (Gas, Agua, Luz)</option>
-                <option value="nomina">Nómina / Sueldos</option>
+                {!settings?.presentationMode && <option value="nomina">Nómina / Sueldos</option>}
                 <option value="arriendo">Arriendo de Local</option>
                 <option value="mantenimiento">Mantenimiento de Equipos</option>
                 <option value="otros">Otros Gastos Varios</option>

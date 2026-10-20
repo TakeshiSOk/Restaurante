@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { useAppStore } from './store/useAppStore';
+import { applyBrandTheme } from './lib/brandTheme';
 
 // Public Pages
 import { DigitalMenuPage } from './pages/public/DigitalMenuPage';
@@ -24,6 +26,12 @@ import { ReportsPage } from './pages/admin/ReportsPage';
 import { SettingsAdminPage } from './pages/admin/SettingsAdminPage';
 
 export function App() {
+  const settings = useAppStore((s) => s.settings);
+
+  useEffect(() => {
+    applyBrandTheme(settings);
+  }, [settings?.primaryColor, settings?.secondaryColor, settings?.name]);
+
   return (
     <ErrorBoundary>
       <BrowserRouter>
@@ -31,8 +39,10 @@ export function App() {
           {/* Rutas Públicas para Clientes / QR de Mesa */}
           <Route path="/" element={<DigitalMenuPage />} />
           <Route path="/pedido/:code" element={<OrderTrackingPage />} />
+          <Route path="/track/:code" element={<OrderTrackingPage />} />
 
-          {/* Login Simulado de Administración */}
+          {/* Login y Portal de Acceso */}
+          <Route path="/login" element={<AdminLogin />} />
           <Route path="/admin/login" element={<AdminLogin />} />
 
           {/* Panel de Administración y Punto de Venta */}

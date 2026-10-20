@@ -13,6 +13,13 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order }) => {
   return (
     <div id="thermal-receipt" className="text-black bg-white p-3 font-mono text-xs w-[80mm] mx-auto leading-tight">
       <div className="text-center pb-2 border-b border-dashed border-black">
+        {settings.logoUrl && (
+          <img
+            src={settings.logoUrl}
+            alt={settings.name}
+            className="w-16 h-16 mx-auto object-contain mb-1 filter grayscale"
+          />
+        )}
         <h1 className="font-bold text-base tracking-wider uppercase">{settings.name}</h1>
         <p className="text-[10px] uppercase">{settings.tagline}</p>
         <p className="text-[10px] mt-1 whitespace-pre-line">{settings.printTicketHeader}</p>

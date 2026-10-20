@@ -76,9 +76,11 @@ export const AdminLayout: React.FC = () => {
   // Verificación estricta de permisos según rol
   const roleAccessMap: Record<string, string[]> = {
     dueno: ['/admin', '/admin/pos', '/admin/pedidos', '/admin/cocina', '/admin/caja', '/admin/mesas', '/admin/domicilios', '/admin/productos', '/admin/clientes', '/admin/inventario', '/admin/gastos', '/admin/reportes', '/admin/configuracion'],
+    administrador: ['/admin', '/admin/pos', '/admin/pedidos', '/admin/cocina', '/admin/caja', '/admin/mesas', '/admin/domicilios', '/admin/productos', '/admin/clientes', '/admin/inventario', '/admin/gastos', '/admin/reportes', '/admin/configuracion'],
     cajero: ['/admin', '/admin/pos', '/admin/pedidos', '/admin/cocina', '/admin/caja', '/admin/mesas', '/admin/domicilios', '/admin/clientes'],
     cocinero: ['/admin/cocina'],
     domiciliario: ['/admin/domicilios'],
+    cliente: [],
   };
 
   const isCurrentRouteAllowed = currentUser
@@ -173,7 +175,6 @@ export const AdminLayout: React.FC = () => {
     {
       title: 'GESTIÓN',
       items: [
-        { to: '/admin/mesas', label: 'Mesas & Cuentas', icon: <UtensilsCrossed className="w-4 h-4" />, roles: ['dueno', 'cajero'] },
         { to: '/admin/clientes', label: 'Clientes & Fiados', icon: <Users className="w-4 h-4" />, roles: ['dueno', 'cajero'] },
         { to: '/admin/productos', label: 'Productos & Carta', icon: <Package className="w-4 h-4" />, roles: ['dueno'] },
         { to: '/admin/inventario', label: 'Inventario & Stock', icon: <Boxes className="w-4 h-4" />, roles: ['dueno'] },
@@ -408,7 +409,7 @@ export const AdminLayout: React.FC = () => {
 
       {/* Fixed Footer Disclaimer */}
       <footer className="bg-brand-surface border-t border-brand-border/60 py-2 px-4 text-center text-[10px] sm:text-xs text-zinc-500 select-none">
-        ⚠️ Control de ventas y caja para Chaves Burguer. No sustituye facturación electrónica ni contabilidad.
+        ⚠️ Control de ventas y caja para {settings.name}. No sustituye facturación electrónica ni contabilidad oficial.
       </footer>
     </div>
   );

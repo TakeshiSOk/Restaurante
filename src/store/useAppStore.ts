@@ -17,6 +17,7 @@ import {
   PriceAdjustmentAudit,
 } from '../types';
 import { categoriesData, initialProducts } from '../data/menu';
+import { getCompleteDemoData, demoCategories } from '../data/demoData';
 import {
   initialStaff,
   initialSettings,
@@ -111,11 +112,17 @@ export interface AppState {
   addExpense: (expense: Omit<Expense, 'id'>) => Expense;
   deleteExpense: (id: string) => void;
 
+  // Acciones de Personal y Domiciliarios
+  addStaff: (member: Omit<Staff, 'id'>) => Staff;
+  updateStaff: (id: string, patch: Partial<Staff>) => void;
+  deleteStaff: (id: string) => void;
+
   // Configuración y Utilidades
   updateSettings: (patch: Partial<BusinessSettings>) => void;
   toggleTheme: () => void;
   setNotification: (notification: AppState['activeNotification']) => void;
   resetToDemoData: () => void;
+  resetToEmptyData: () => void;
   exportDatabaseJson: () => string;
   importDatabaseJson: (json: string) => { success: boolean; error?: string };
 }
@@ -141,10 +148,38 @@ function loadInitialState() {
           return { ...p, image: validImg };
         });
 
+        let loadedOrders: Order[] = parsed.orders || [];
+
+        // Optimización demo: si el almacenamiento local contiene un seed masivo antiguo (>120 pedidos),
+        // podar automáticamente a los pedidos activos + últimos 80 pedidos finalizados para no saturar el hilo de la UI.
+        if (loadedOrders.length > 120) {
+          const activeOrders = loadedOrders.filter(
+            (o) => o.status !== 'entregado' && o.status !== 'cancelado'
+          );
+          const finishedOrders = loadedOrders
+            .filter((o) => o.status === 'entregado' || o.status === 'cancelado')
+            .sort(
+              (a, b) =>
+                new Date(b.updatedAt || b.createdAt).getTime() -
+                new Date(a.updatedAt || a.createdAt).getTime()
+            )
+            .slice(0, 80);
+
+          loadedOrders = [...activeOrders, ...finishedOrders];
+
+          // Si no había pedidos activos en el seed antiguo, inyectar los pedidos activos de la demo
+          if (activeOrders.length === 0) {
+            const demoActive = getCompleteDemoData().orders.filter(
+              (o) => o.status !== 'entregado' && o.status !== 'cancelado'
+            );
+            loadedOrders = [...demoActive, ...loadedOrders];
+          }
+        }
+
         return {
           categories: parsed.categories || categoriesData,
           products: storedProducts,
-          orders: parsed.orders || [],
+          orders: loadedOrders,
           customers: parsed.customers || initialCustomers,
           cashSessions: parsed.cashSessions || [initialCashSession],
           tables: parsed.tables || initialTables,
@@ -164,18 +199,26 @@ function loadInitialState() {
 }
 
 function getFallbackState() {
-  const generatedOrders = generateSeedOrders();
+  const demo = getCompleteDemoData();
+  const storedProducts = initialProducts.map((p: Product) => {
+    const validImg =
+      p.image && !p.image.includes('burger-sample.png') && p.image.startsWith('/images/')
+        ? p.image
+        : getProductImage(p);
+    return { ...p, image: validImg };
+  });
+
   return {
     categories: categoriesData,
-    products: initialProducts,
-    orders: generatedOrders,
-    customers: initialCustomers,
-    cashSessions: [initialCashSession],
+    products: storedProducts,
+    orders: demo.orders,
+    customers: demo.customers,
+    cashSessions: demo.cashSessions,
     tables: initialTables,
-    inventory: initialInventory,
-    expenses: initialExpenses,
-    staff: initialStaff,
-    settings: initialSettings,
+    inventory: demo.inventory,
+    expenses: demo.expenses,
+    staff: demo.staff,
+    settings: demo.settings,
     priceAudits: [],
   };
 }
@@ -759,6 +802,28 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
+  // --- PERSONAL & DOMICILIARIOS ---
+  addStaff: (member) => {
+    const newStaff: Staff = {
+      ...member,
+      id: `staff-${Date.now()}`,
+    };
+    set((state) => ({ staff: [...state.staff, newStaff] }));
+    return newStaff;
+  },
+
+  updateStaff: (id, patch) => {
+    set((state) => ({
+      staff: state.staff.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+    }));
+  },
+
+  deleteStaff: (id) => {
+    set((state) => ({
+      staff: state.staff.filter((s) => s.id !== id),
+    }));
+  },
+
   // --- CONFIGURACIÓN & DEMO ---
   updateSettings: (patch) => {
     set((state) => {
@@ -798,23 +863,66 @@ export const useAppStore = create<AppState>((set, get) => ({
         // ignore
       }
     }
-    const newSeedOrders = generateSeedOrders();
+    const demo = getCompleteDemoData();
+    const storedProducts = initialProducts.map((p: Product) => {
+      const validImg =
+        p.image && !p.image.includes('burger-sample.png') && p.image.startsWith('/images/')
+          ? p.image
+          : getProductImage(p);
+      return { ...p, image: validImg };
+    });
+
     set({
       categories: categoriesData,
-      products: initialProducts,
-      orders: newSeedOrders,
-      customers: initialCustomers,
-      cashSessions: [initialCashSession],
+      products: storedProducts,
+      orders: demo.orders,
+      customers: demo.customers,
+      cashSessions: demo.cashSessions,
       tables: initialTables,
-      inventory: initialInventory,
-      expenses: initialExpenses,
-      staff: initialStaff,
-      settings: initialSettings,
+      inventory: demo.inventory,
+      expenses: demo.expenses,
+      staff: demo.staff,
+      settings: demo.settings,
       priceAudits: [],
       cart: [],
       activeNotification: {
-        message: '¡Datos demo de 60 días restablecidos con éxito!',
+        message: '¡Datos demo restablecidos con éxito!',
         type: 'success',
+      },
+    });
+
+    syncManager.broadcast({ type: 'STATE_UPDATED' });
+  },
+
+  resetToEmptyData: () => {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
+    const demo = getCompleteDemoData();
+    set({
+      categories: demo.categories,
+      products: [],
+      orders: [],
+      customers: [],
+      cashSessions: [],
+      tables: initialTables,
+      inventory: [],
+      expenses: [],
+      staff: demo.staff,
+      settings: {
+        ...demo.settings,
+        name: 'Mi Restaurante',
+        tagline: 'Comidas Rápidas & Sabor Artesanal',
+      },
+      priceAudits: [],
+      cart: [],
+      activeNotification: {
+        message: 'Sistema iniciado en blanco. Listo para ingresar datos reales.',
+        type: 'info',
       },
     });
 
@@ -879,28 +987,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 }));
 
-// Auto-guardado en localStorage con manejo seguro de excepciones
+// Auto-guardado en localStorage con debounce y límite seguro de historial
 if (typeof window !== 'undefined') {
+  let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
   useAppStore.subscribe((state) => {
-    const payload = {
-      schemaVersion: CURRENT_SCHEMA_VERSION,
-      categories: state.categories,
-      products: state.products,
-      orders: state.orders,
-      customers: state.customers,
-      cashSessions: state.cashSessions,
-      tables: state.tables,
-      inventory: state.inventory,
-      expenses: state.expenses,
-      staff: state.staff,
-      settings: state.settings,
-      priceAudits: state.priceAudits,
-    };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (e) {
-      console.warn('Límite de cuota o restricción de localStorage:', e);
-    }
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      const payload = {
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        categories: state.categories,
+        products: state.products,
+        orders: state.orders.slice(0, 150),
+        customers: state.customers,
+        cashSessions: state.cashSessions,
+        tables: state.tables,
+        inventory: state.inventory,
+        expenses: state.expenses,
+        staff: state.staff,
+        settings: state.settings,
+        priceAudits: state.priceAudits,
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (e) {
+        console.warn('Límite de cuota o restricción de localStorage:', e);
+      }
+    }, 200);
   });
 
   // Suscripción al BroadcastChannel de pestañas

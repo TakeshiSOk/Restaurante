@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Order, OrderStatus, OrderOrigin } from '../../types';
+import { Order, OrderStatus } from '../../types';
 import { formatCurrency, formatTime, formatTimeAgo, playAlertSound } from '../../lib/utils';
 import { StatusBadge, OriginBadge, PaymentMethodBadge } from '../../components/common/Badge';
 import { ThermalReceipt } from '../../components/common/ThermalReceipt';
@@ -16,6 +16,8 @@ import {
   List,
   AlertCircle,
   X,
+  CheckCircle,
+  Check,
 } from 'lucide-react';
 
 export const OrdersKanbanPage: React.FC = () => {
@@ -31,16 +33,22 @@ export const OrdersKanbanPage: React.FC = () => {
 
   const deliveryStaff = staff.filter((s) => s.role === 'domiciliario' && s.active);
 
-  // Filtrado de pedidos
-  const filteredOrders = orders.filter((o) => {
-    if (search.trim()) {
-      const matchCode = o.code.toLowerCase().includes(search.toLowerCase());
-      const matchCust = o.customer.name.toLowerCase().includes(search.toLowerCase());
-      if (!matchCode && !matchCust) return false;
-    }
-    if (originFilter !== 'all' && o.origin !== originFilter) return false;
-    return true;
-  });
+  // Filtrado y ordenamiento de pedidos (el más reciente siempre arriba)
+  const filteredOrders = orders
+    .filter((o) => {
+      if (search.trim()) {
+        const matchCode = o.code.toLowerCase().includes(search.toLowerCase());
+        const matchCust = o.customer.name.toLowerCase().includes(search.toLowerCase());
+        if (!matchCode && !matchCust) return false;
+      }
+      if (originFilter !== 'all' && o.origin !== originFilter) return false;
+      return true;
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt || b.createdAt).getTime() -
+        new Date(a.updatedAt || a.createdAt).getTime()
+    );
 
   const kanbanColumns: { id: OrderStatus; label: string; color: string; desc: string }[] = [
     { id: 'recibido', label: 'Recibidos', color: 'border-blue-500/40 text-blue-400', desc: 'Nuevos pedidos' },
@@ -50,24 +58,47 @@ export const OrdersKanbanPage: React.FC = () => {
     { id: 'entregado', label: 'Entregados', color: 'border-zinc-600/40 text-zinc-400', desc: 'Finalizados hoy' },
   ];
 
-  const handleNextStatus = (order: Order) => {
-    const nextMap: Record<OrderStatus, OrderStatus | null> = {
-      recibido: 'en_cocina',
-      en_cocina: 'listo',
-      listo: order.origin === 'domicilio' ? 'en_camino' : 'entregado',
-      en_camino: 'entregado',
-      entregado: null,
-      cancelado: null,
-    };
+  // Obtener pedidos por columna evitando sobrecargar el DOM con miles de órdenes antiguas
+  const getOrdersForColumn = (status: OrderStatus) => {
+    const list = filteredOrders.filter((o) => o.status === status);
 
-    const next = nextMap[order.status];
+    if (status === 'entregado') {
+      const todayStr = new Date().toDateString();
+      const todayDelivered = list.filter(
+        (o) => new Date(o.updatedAt || o.createdAt).toDateString() === todayStr
+      );
+      // Mostrar los de hoy; si no hay hoy, mostrar máximo los 20 más recientes
+      return todayDelivered.length > 0 ? todayDelivered.slice(0, 30) : list.slice(0, 20);
+    }
+
+    return list;
+  };
+
+  const handleNextStatus = (order: Order, targetStatus?: OrderStatus) => {
+    let next: OrderStatus | null = targetStatus || null;
+    if (!next) {
+      if (order.status === 'recibido') {
+        next = 'en_cocina';
+      } else if (order.status === 'en_cocina') {
+        next = 'listo';
+      } else if (order.status === 'listo') {
+        const isDelivery = order.origin === 'domicilio' || Boolean(order.customer?.address);
+        next = isDelivery ? 'en_camino' : 'entregado';
+      } else if (order.status === 'en_camino') {
+        next = 'entregado';
+      }
+    }
+
     if (next) {
       updateOrderStatus(order.id, next);
       playAlertSound('kitchen');
       setNotification({
-        message: `Pedido ${order.code} avanzado a: ${next.replace('_', ' ')}`,
-        type: 'info',
+        message: `Pedido ${order.code} actualizado a: ${next.replace('_', ' ').toUpperCase()}`,
+        type: 'success',
       });
+      if (selectedOrder && selectedOrder.id === order.id) {
+        setSelectedOrder({ ...selectedOrder, status: next });
+      }
     }
   };
 
@@ -161,7 +192,7 @@ export const OrdersKanbanPage: React.FC = () => {
       {viewMode === 'kanban' ? (
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-3.5 items-start overflow-x-auto pb-4">
           {kanbanColumns.map((col) => {
-            const columnOrders = filteredOrders.filter((o) => o.status === col.id);
+            const columnOrders = getOrdersForColumn(col.id);
 
             return (
               <div
@@ -175,7 +206,7 @@ export const OrdersKanbanPage: React.FC = () => {
                     <span className="text-[10px] text-zinc-400 block font-normal">{col.desc}</span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full bg-black/40 text-xs font-black">
-                    {columnOrders.length}
+                    {col.id === 'entregado' && columnOrders.length > 0 ? `${columnOrders.length} hoy` : columnOrders.length}
                   </span>
                 </div>
 
@@ -254,15 +285,79 @@ export const OrdersKanbanPage: React.FC = () => {
                             >
                               <Printer className="w-3.5 h-3.5" />
                             </button>
-                            {order.status !== 'entregado' && order.status !== 'cancelado' && (
+
+                            {/* Acciones claras de avance por estado */}
+                            {order.status === 'recibido' && (
                               <button
-                                onClick={() => handleNextStatus(order)}
-                                className="px-2 py-1 bg-brand-orange hover:bg-brand-amber text-black font-black rounded-lg text-[10px] flex items-center gap-0.5"
-                                title="Avanzar estado"
+                                onClick={() => handleNextStatus(order, 'en_cocina')}
+                                className="px-2 py-1 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-lg text-[10px] flex items-center gap-0.5 shadow-sm transition-all"
+                                title="Enviar a cocina"
                               >
-                                <span>Avanzar</span>
+                                <span>A Cocina</span>
                                 <ArrowRight className="w-3 h-3" />
                               </button>
+                            )}
+
+                            {order.status === 'en_cocina' && (
+                              <button
+                                onClick={() => handleNextStatus(order, 'listo')}
+                                className="px-2 py-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-lg text-[10px] flex items-center gap-0.5 shadow-sm transition-all"
+                                title="Marcar como listo"
+                              >
+                                <span>A Listos</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            )}
+
+                            {order.status === 'listo' && (
+                              <div className="flex items-center gap-1">
+                                {(order.origin === 'domicilio' || Boolean(order.customer?.address)) ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleNextStatus(order, 'en_camino')}
+                                      className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-lg text-[10px] flex items-center gap-1 shadow-sm transition-all"
+                                      title="Despachar en ruta con domiciliario"
+                                    >
+                                      <Bike className="w-3 h-3" />
+                                      <span>En Ruta</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleNextStatus(order, 'entregado')}
+                                      className="px-1.5 py-1 bg-zinc-700 hover:bg-emerald-600 text-zinc-200 hover:text-white font-bold rounded-lg text-[10px] transition-all"
+                                      title="Entregar directo en local"
+                                    >
+                                      ✓
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={() => handleNextStatus(order, 'entregado')}
+                                    className="px-2 py-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-lg text-[10px] flex items-center gap-1 shadow-sm transition-all"
+                                    title="Entregar al cliente"
+                                  >
+                                    <Check className="w-3 h-3 stroke-[3]" />
+                                    <span>Entregar</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            {order.status === 'en_camino' && (
+                              <button
+                                onClick={() => handleNextStatus(order, 'entregado')}
+                                className="px-2 py-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-lg text-[10px] flex items-center gap-1 shadow-sm transition-all"
+                                title="Marcar como entregado"
+                              >
+                                <Check className="w-3 h-3 stroke-[3]" />
+                                <span>Entregar</span>
+                              </button>
+                            )}
+
+                            {order.status === 'entregado' && (
+                              <span className="text-[10px] text-zinc-500 flex items-center gap-0.5 font-semibold">
+                                <CheckCircle className="w-3 h-3 text-emerald-500/70" />
+                                <span>Listo</span>
+                              </span>
                             )}
                           </div>
                         </div>
@@ -331,6 +426,15 @@ export const OrdersKanbanPage: React.FC = () => {
                         >
                           <Printer className="w-3.5 h-3.5" />
                         </button>
+                        {order.status !== 'entregado' && order.status !== 'cancelado' && (
+                          <button
+                            onClick={() => handleNextStatus(order)}
+                            className="p-1.5 rounded-lg bg-brand-orange text-black font-bold hover:bg-brand-amber transition-all"
+                            title="Avanzar estado"
+                          >
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -360,6 +464,34 @@ export const OrdersKanbanPage: React.FC = () => {
               </button>
             </div>
 
+            {/* Selector Rápido de Estado en el Modal */}
+            <div className="p-3 rounded-2xl bg-black/40 border border-brand-border/60 text-xs space-y-2">
+              <span className="font-bold text-zinc-400 block text-[11px] uppercase tracking-wider">
+                Cambiar Estado del Pedido
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                {[
+                  { id: 'recibido' as const, label: 'Recibido' },
+                  { id: 'en_cocina' as const, label: 'En Cocina' },
+                  { id: 'listo' as const, label: 'Listo' },
+                  { id: 'en_camino' as const, label: 'En Camino' },
+                  { id: 'entregado' as const, label: 'Entregado' },
+                ].map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => handleNextStatus(selectedOrder, s.id)}
+                    className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all text-center ${
+                      selectedOrder.status === s.id
+                        ? 'bg-brand-orange text-black border-brand-orange font-black shadow-md'
+                        : 'bg-brand-surface border-brand-border text-zinc-400 hover:border-zinc-500 hover:text-white'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Info Cliente */}
             <div className="p-3 rounded-2xl bg-black/40 border border-brand-border/60 text-xs space-y-1">
               <div><span className="text-zinc-400">Cliente:</span> <span className="font-bold">{selectedOrder.customer.name}</span></div>
@@ -369,7 +501,7 @@ export const OrdersKanbanPage: React.FC = () => {
             </div>
 
             {/* Asignación Domiciliario si es domicilio */}
-            {selectedOrder.origin === 'domicilio' && (
+            {(selectedOrder.origin === 'domicilio' || Boolean(selectedOrder.customer.address)) && (
               <div className="p-3 rounded-2xl bg-purple-950/20 border border-purple-500/30 text-xs space-y-1.5">
                 <div className="flex items-center gap-1.5 font-bold text-purple-300">
                   <Bike className="w-4 h-4" />
