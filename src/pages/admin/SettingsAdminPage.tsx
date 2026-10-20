@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { QRCodeSVG } from 'qrcode.react';
 import { BRAND_PALETTES, BrandPalette, applyBrandTheme } from '../../lib/brandTheme';
+import { AVAILABLE_PRESETS, RestaurantConfig } from '../../config/restaurant.config';
 import {
   Settings,
   Store,
@@ -118,6 +119,52 @@ export const SettingsAdminPage: React.FC = () => {
 
     setNotification({
       message: `Paleta "${palette.name}" aplicada al instante.`,
+      type: 'success',
+    });
+  };
+
+  // Aplicar Preset completo de Restaurante (Marca Blanca)
+  const handleSelectPreset = (preset: RestaurantConfig) => {
+    setBusinessName(preset.name);
+    setTagline(preset.tagline);
+    setPhone(preset.contact.phone);
+    setWhatsapp(preset.contact.whatsappNumber);
+    setAddress(preset.contact.address);
+    setSchedule(preset.contact.scheduleText);
+    setPrimaryColor(preset.theme.primaryColor);
+    setSecondaryColor(preset.theme.secondaryColor);
+    setSelectedPaletteId('');
+
+    updateSettings({
+      name: preset.name,
+      tagline: preset.tagline,
+      heroBadge: preset.heroBadge,
+      heroHeadline: preset.heroHeadline,
+      legalName: preset.legalName,
+      nit: preset.nit,
+      instagram: preset.contact.instagram,
+      phone: preset.contact.phone,
+      whatsappNumber: preset.contact.whatsappNumber,
+      address: preset.contact.address,
+      city: preset.contact.city,
+      scheduleText: preset.contact.scheduleText,
+      primaryColor: preset.theme.primaryColor,
+      secondaryColor: preset.theme.secondaryColor,
+      printTicketHeader: preset.ticket.header,
+      printTicketFooter: preset.ticket.footer,
+      loyaltyPointsPer1000: preset.loyalty.pointsPer1000,
+      pointValueInCop: preset.loyalty.pointValueInCop,
+    });
+
+    applyBrandTheme({
+      ...settings,
+      name: preset.name,
+      primaryColor: preset.theme.primaryColor,
+      secondaryColor: preset.theme.secondaryColor,
+    });
+
+    setNotification({
+      message: `¡Modo "${preset.name}" activado exitosamente!`,
       type: 'success',
     });
   };
@@ -304,6 +351,38 @@ export const SettingsAdminPage: React.FC = () => {
                 <h3 className="font-bold text-base text-brand-cream">Marca del Negocio & Colores</h3>
               </div>
               <span className="text-[10px] text-zinc-400">Aplica en Menú, POS y Recibos</span>
+            </div>
+
+            {/* Selector de Presets de Marca Blanca (Ideal para demos de venta) */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-brand-orange/15 via-brand-surface-light to-brand-surface border border-brand-orange/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-brand-orange uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Demostración de Plantilla Marca Blanca (Presets)</span>
+                </label>
+                <span className="text-[10px] text-zinc-400">1 clic para transformar la app</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {AVAILABLE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(preset)}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      settings.name === preset.name
+                        ? 'bg-zinc-900 border-brand-orange ring-1 ring-brand-orange shadow-md'
+                        : 'bg-brand-surface border-brand-border hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: preset.theme.primaryColor }} />
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: preset.theme.secondaryColor }} />
+                      <span className="font-bold text-xs text-brand-cream truncate">{preset.name}</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-400 truncate">{preset.tagline}</p>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Selector de Paletas Predefinidas */}

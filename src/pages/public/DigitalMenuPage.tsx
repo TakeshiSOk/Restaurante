@@ -193,10 +193,10 @@ export const DigitalMenuPage: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-orange/15 text-brand-orange border border-brand-orange/25 mb-1">
               <Sparkles className="w-3 h-3" />
-              <span>Sabor casero & porciones monumentales</span>
+              <span>{settings.heroBadge || settings.tagline || 'Sabor casero & porciones monumentales'}</span>
             </div>
             <h1 className="text-sm sm:text-base font-bold text-brand-cream">
-              ¡Pide en línea y disfruta de la mejor comida rápida artesanal!
+              {settings.heroHeadline || `¡Pide en línea en ${settings.name}!`}
             </h1>
           </div>
 

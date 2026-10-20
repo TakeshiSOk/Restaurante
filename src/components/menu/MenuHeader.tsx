@@ -28,7 +28,7 @@ export const MenuHeader: React.FC<MenuHeaderProps> = ({
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const whatsappUrl = `https://wa.me/${settings.whatsappNumber.replace(/\D/g, '')}?text=Hola%20Chaves%20Burguer!%20Quisiera%20información.`;
+  const whatsappUrl = `https://wa.me/${settings.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${settings.name}! Quisiera información.`)}`;
 
   return (
     <>

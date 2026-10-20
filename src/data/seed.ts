@@ -14,6 +14,7 @@ import {
   PaymentMethod,
 } from '../types';
 import { initialProducts } from './menu';
+import { currentRestaurantConfig } from '../config/restaurant.config';
 
 // Generador pseudoaleatorio determinista LCG
 class SeededRandom {
@@ -49,21 +50,29 @@ export const initialDeliveryZones: DeliveryZone[] = [
 ];
 
 export const initialSettings: BusinessSettings = {
-  name: 'Chaves Burguer',
-  tagline: 'Fast Food · Restaurant · Drink',
-  phone: '311 555 0192',
-  whatsappNumber: '573115550192',
-  address: 'Calle 14 # 8-42, Parque Principal',
-  city: 'Colombia',
+  name: currentRestaurantConfig.name,
+  tagline: currentRestaurantConfig.tagline,
+  heroBadge: currentRestaurantConfig.heroBadge,
+  heroHeadline: currentRestaurantConfig.heroHeadline,
+  legalName: currentRestaurantConfig.legalName,
+  nit: currentRestaurantConfig.nit,
+  instagram: currentRestaurantConfig.contact.instagram,
+  logoUrl: currentRestaurantConfig.logoUrl,
+  primaryColor: currentRestaurantConfig.theme.primaryColor,
+  secondaryColor: currentRestaurantConfig.theme.secondaryColor,
+  phone: currentRestaurantConfig.contact.phone,
+  whatsappNumber: currentRestaurantConfig.contact.whatsappNumber,
+  address: currentRestaurantConfig.contact.address,
+  city: currentRestaurantConfig.contact.city,
   isOpen: true,
-  scheduleText: 'Lunes a Domingo: 11:30 am - 11:00 pm',
-  loyaltyPointsPer1000: 1,
-  pointValueInCop: 50, // Cada 100 puntos = $5.000 COP de descuento
+  scheduleText: currentRestaurantConfig.contact.scheduleText,
+  loyaltyPointsPer1000: currentRestaurantConfig.loyalty.pointsPer1000,
+  pointValueInCop: currentRestaurantConfig.loyalty.pointValueInCop,
   theme: 'dark',
   deliveryZones: initialDeliveryZones,
   simulatedOrdersActive: false,
-  printTicketHeader: 'CHAVES BURGUER\nNIT: 900.823.114-1\nRegimen Simplificado',
-  printTicketFooter: '¡Gracias por su compra!\nCalidad y Sabor Insuperable\nInstagram: @chavesburguer',
+  printTicketHeader: currentRestaurantConfig.ticket.header,
+  printTicketFooter: currentRestaurantConfig.ticket.footer,
   inactivityTimeoutMinutes: 15,
 };
 

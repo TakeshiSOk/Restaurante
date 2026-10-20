@@ -219,6 +219,11 @@ export interface PriceAdjustmentAudit {
 export interface BusinessSettings {
   name: string;
   tagline: string;
+  heroBadge?: string;
+  heroHeadline?: string;
+  legalName?: string;
+  nit?: string;
+  instagram?: string;
   logoUrl?: string;
   primaryColor?: string; // Color primario de marca (CSS Hex)
   secondaryColor?: string; // Color secundario de marca (CSS Hex)
